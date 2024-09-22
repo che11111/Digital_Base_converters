@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>进制转换工具</title>
+  <style>
+
+
+
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+    }
+
+  .container {
+      max-width: 400px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    input[type="number"],
+    input[type="text"] {
+      width: 95%;
+      padding: 8px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    #result {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    #explanation {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <label for="fromBase">待转换数值的进制：</label>
+    <input type="number" id="fromBase" min="-60" max="60">
+
+    <label for="value">待转换值：</label>
+    <input type="text" id="value">
+
+    <label for="toBase">转换的目标进制：</label>
+    <input type="number" id="toBase" min="-60" max="60">
+
+    <button onclick="convert()">确定</button>
+
+    <p id="result"></p >
+    <p id="explanation"></p >
+  </div>
+
+
+  <div class="container">
+    特此说明
+    <br>
+    1、可输入的进制数为“ -60 ~ -1,1 ~ 60 ”.<br>
+    2、待转换值过大会无法输出计算结果而显示 “计算出错”.<br>
+    3、为避免歧义，本计算器将1进制的个位数设定为1.<br>
+    4、二进制至六十进制的个位数，分别由01递增到 <br>
+       &nbsp&nbsp&nbsp&nbsp&nbsp     0123456789ABCDEFGHIJKLMNOPQRSTU<br>
+       &nbsp&nbsp&nbsp&nbsp&nbsp VWXYZabcdefghijklmnopqrstuvwxyz .<br>
+    5、待转换值需为当前进制内的数值，否则 “计算出错”.
+  </div>
+
+  <script>
+    function convert() {
+      const fromBase = parseInt(document.getElementById('fromBase').value);
+      const value = document.getElementById('value').value;
+      const toBase = parseInt(document.getElementById('toBase').value);
+
+      if (fromBase === 0 || toBase === 0) {
+        document.getElementById('result').textContent = "没有 0 进制";
+        document.getElementById('explanation').textContent = "";
+        return;
+      }
+
+      if (fromBase < -60 || fromBase > 60 || toBase < -60 || toBase > 60) {
+        document.getElementById('result').textContent = "超出计算范围，请输入-60～-1，1～60之间的数";
+        document.getElementById('explanation').textContent = "";
+        return;
+      }
+
+      if (isNaN(fromBase) || isNaN(toBase) ||!value) {
+        document.getElementById('result').textContent = "计算出错！";
+        document.getElementById('explanation').textContent = "";
+        return;
+      }
+
+      let decimalValue;
+      if (fromBase === 1) {
+        decimalValue = value.length;
+      } else if (fromBase >= 2 && fromBase <= 36) {
+        // 检查输入值是否在该进制下合法
+        let isValid = true;
+        for (let char of value) {
+          let digitValue;
+          if (char >= '0' && char <= '9') {
+            digitValue = parseInt(char);
+          } else {
+            digitValue = char.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+          }
+          if (digitValue >= fromBase) {
+            isValid = false;
+            break;
+          }
+        }
+        if (isValid) {
+          decimalValue = parseInt(value, fromBase);
+        } else {
+          document.getElementById('result').textContent = "计算出错！";
+          document.getElementById('explanation').textContent = "";
+          return;
+        }
+      } else if (fromBase > 36 && fromBase <= 60) {
+        decimalValue = convertToDecimalFromHighBase(value, fromBase);
+      } else {
+        decimalValue = convertToDecimalNegativeBase(value, fromBase);
+      }
+
+      if (isNaN(decimalValue)) {
+        document.getElementById('result').textContent = "计算出错！";
+        document.getElementById('explanation').textContent = "";
+        return;
+      }
+
+      let result;
+      if (toBase === 1) {
+        let onesCount = decimalValue;
+        result = new Array(onesCount + 1).fill('1').join('');
+      } else if (toBase >= 2 && toBase <= 36) {
+        result = decimalValue.toString(toBase);
+      } else if (toBase > 36 && toBase <= 60) {
+        result = convertFromDecimalToHighBase(decimalValue, toBase);
+      } else {
+        result = convertFromDecimalNegativeBase(decimalValue, toBase);
+      }
+
+      // 检查结果中是否有不合法字符
+      if (/[^0-9A-Za-z]/.test(result)) {
+        document.getElementById('result').textContent = "计算出错！";
+        document.getElementById('explanation').textContent = "";
+        return;
+      }
+
+      let explanation = "";
+      if (toBase === 1) {
+        let components = [];
+        for (let i = 0; i <= decimalValue; i++) {
+          components.push('1 ^ ' + i);
+        }
+        explanation = `${result} 解释：${components.join('+')}=${decimalValue}`;
+      } else if (toBase < 0) {
+        let power = 0;
+        let tempValue = decimalValue;
+        let negativeComponents = [];
+        while (tempValue!== 0) {
+          let remainder = tempValue % (-toBase);
+          negativeComponents.push(`${remainder} * (${toBase}) ^ ${power}`);
+          tempValue = Math.floor(tempValue / (-toBase));
+          power++;
+        }
+        explanation = `${result} 解释：${negativeComponents.reverse().join(" + ")} = ${decimalValue}`;
+      } else {
+        let power = 0;
+        let tempValue = decimalValue;
+        let positiveComponents = [];
+        while (tempValue > 0) {
+          let remainder = tempValue % toBase;
+          let digit;
+          if (remainder < 10) {
+            digit = remainder.toString();
+          } else {
+            digit = String.fromCharCode(remainder - 10 + 'A'.charCodeAt(0));
+          }
+          positiveComponents.push(`${digit} * (${toBase}) ^ ${power}`);
+          tempValue = Math.floor(tempValue / toBase);
+          power++;
+        }
+        explanation = `${result} 解释：${positiveComponents.reverse().join(" + ")} = ${decimalValue}`;
+      }
+
+      document.getElementById('result').textContent = result;
+      document.getElementById('explanation').textContent = explanation;
+    }
+
+    function convertToDecimalFromHighBase(number, base) {
+      let decimalValue = 0;
+      let power = 0;
+      for (let i = number.length - 1; i >= 0; i--) {
+        let digitValue;
+        if (number[i] >= '0' && number[i] <= '9') {
+          digitValue = parseInt(number[i]);
+        } else {
+          digitValue = number[i].charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+        }
+        decimalValue += digitValue * Math.pow(base, power);
+        power++;
+      }
+      return decimalValue;
+    }
+
+    function convertFromDecimalToHighBase(decimalValue, base) {
+      if (decimalValue === 0) return '0';
+      let result = '';
+      while (decimalValue > 0) {
+        let remainder = decimalValue % base;
+        let digit;
+        if (remainder < 10) {
+          digit = remainder.toString();
+        } else {
+          digit = String.fromCharCode(remainder - 10 + 'A'.charCodeAt(0));
+        }
+        result = digit + result;
+        decimalValue = Math.floor(decimalValue / base);
+      }
+      return result;
+    }
+
+    function convertToDecimalNegativeBase(number, base) {
+      let decimalValue = 0;
+      let power = 0;
+      for (let i = number.length - 1; i >= 0; i--) {
+        let digitValue;
+        if (number[i] >= '0' && number[i] <= '9') {
+          digitValue = parseInt(number[i]);
+        } else {
+          digitValue = number[i].charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+        }
+        decimalValue += digitValue * Math.pow(-base, power);
+        power++;
+      }
+      return decimalValue;
+    }
+
+    function convertFromDecimalNegativeBase(decimalValue, base) {
+      if (decimalValue === 0) return '0';
+      let result = '';
+      while (decimalValue!== 0) {
+        let remainder = Math.abs(decimalValue % base);
+        let digit;
+        if (remainder < 10) {
+          digit = remainder.toString();
+        } else {
+          digit = String.fromCharCode(remainder - 10 + 'A'.charCodeAt(0));
+        }
+        result = digit + result;
+        decimalValue = Math.floor(decimalValue / base);
+      }
+      return result;
+    }
+  </script>
+</body>
+
+</html>
